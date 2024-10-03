@@ -1,7 +1,12 @@
-#set working directory
-setwd("C:/Users/ERIN.MOREAU/OneDrive - USDA/Cloud documents/Oat research/OCR manuscript/APS 2024/Reanalysis with 2023 data")
 
-#in the original spreadsheet, I changed the 0-4 scale codes of 2015-2022 to the following scale:
+# R code for 2023 USDA Oat Crown Rust Virulence Survey --------------------
+
+
+# set working directory
+setwd("C:/Users/ERIN.MOREAU/OneDrive - USDA/Cloud documents/Oat research/OCR manuscript/APS 2024/Reanalysis with 2023 data")
+# setwd("")
+
+# in the original spreadsheet, I changed the 0-4 scale codes of 2015-2022 to the following scale:
 # 0=0
 # 0;=1
 # ;=2
@@ -18,7 +23,10 @@ setwd("C:/Users/ERIN.MOREAU/OneDrive - USDA/Cloud documents/Oat research/OCR man
 library(tidyverse) #several packages including ggplot2 and dplyr
 
 #read in data
-raw_OCR_survey <- read.csv("Summary_1992-2022.csv")
+raw_OCR_survey <- read.csv("Supplementary File S1 Raw data 1993-2023.csv")
+
+
+# Transforming and cleaning the data --------------------------------------
 
 # check data
 str(raw_OCR_survey)
@@ -29,7 +37,7 @@ table(raw_OCR_survey$H548)
 # change the integer type to numeric
 raw_OCR_survey$TAM.O.405 <- as.numeric(raw_OCR_survey$TAM.O.405)
 
-#clean up the isolate names to the get rid of "-" between state and number for some of the years (95LA-026 -> 95LA026)
+# clean up the isolate names to the get rid of "-" between state and number for some of the years (95LA-026 -> 95LA026)
 raw_OCR_survey <- raw_OCR_survey %>%
   mutate(isolate= gsub("([A-Za-z])-", "\\1", isolate)) #only deleting "-" that follow a letter
 
@@ -48,17 +56,17 @@ raw_OCR_survey_1 <- raw_OCR_survey_1 %>% distinct(new_id,Pc14,Pc35,Pc36,Pc39,Pc4
 # dropping the new_id column
 raw_OCR_survey <- raw_OCR_survey_1[,-2]
 
-#split dataframe into two based on the year, exclude 1992 because the data was collected by a different person and only includes accessions from MN, so not really part of the national survey
+# split dataframe into two based on the year, exclude 1992 because the data was collected by a different person and only includes accessions from MN, so not really part of the national survey
 OCR_before2015 <- filter(raw_OCR_survey, year < 2015 & year >=1993)
 OCR_after2015 <- filter(raw_OCR_survey, year >= 2015)
 
 table(OCR_before2015$Pc14)
 table(OCR_after2015$Pc14)
 
-#for before 2015, take columns 8-47 with the rating data and change to 1 if virulent (>=3) or 0 if avirulent
+# for before 2015, take columns 8-47 with the rating data and change to 1 if virulent (>=3) or 0 if avirulent
 OCR_before2015[8:47] <- lapply(OCR_before2015[8:47], function(x) ifelse(x>=3, 1, 0))
 
-#for 2015 and after, take columns 8-47 with the rating data and change to 1 if virulent (>=7) or 0 if avirulent
+# for 2015 and after, take columns 8-47 with the rating data and change to 1 if virulent (>=7) or 0 if avirulent
 OCR_after2015[8:47] <- lapply(OCR_after2015[8:47], function(x) ifelse(x>=7, 1, 0))
 
 # recombine the two datasets
@@ -68,7 +76,7 @@ str(OCR_survey)
 
 OCR_survey %>% count(region)
 
-#for each isolate, calculate the average amount of virulences and the virulence count, append to the end of the dataframe
+# for each isolate, calculate the average amount of virulences and the virulence count, append to the end of the dataframe
 OCR_survey$meanvirulence = rowMeans(OCR_survey[,c(8:47)], na.rm = TRUE)
 OCR_survey$countvirulence = rowSums(OCR_survey[,c(8:47)], na.rm = TRUE)
 
@@ -76,7 +84,7 @@ OCR_survey$countvirulence = rowSums(OCR_survey[,c(8:47)], na.rm = TRUE)
 #filter out 2013 data because only two samples and add in later
 OCR_wout_2013<- OCR_survey %>% filter(year!=2013)
 
-#these two observations must have typos for values Pc91, Pc94,Pc96, IAB605Xsel., WIX4361.9, TAM.O.405, Belle, HiFi, Leggett, and Stainless
+# these two observations must have typos for values Pc91, Pc94,Pc96, IAB605Xsel., WIX4361.9, TAM.O.405, Belle, HiFi, Leggett, and Stainless
 # because they were not being tested for at that time.
 # replace with NAs to clean up the data set
 OCR_wout_2013 %>%
@@ -85,7 +93,12 @@ OCR_wout_2013 %>%
   mutate(across("Pc91":"Pc96", ~ifelse(isolate=="01TX010", NA, .))) %>% 
   mutate(across("IAB605Xsel.":"TAM.O.405", ~ifelse(isolate=="01TX010", NA, .))) -> OCR_wout_2013_clean
 
-#checking the 5 isolates with the most and least virulences in 2023
+
+
+# Summary measures ---------------------------------
+
+
+# checking the isolates with the most and least virulences in 2023
 OCR_wout_2013_clean %>% 
   filter(year==2023) %>% 
   arrange(countvirulence)
@@ -102,6 +115,7 @@ OCR_wout_2013_clean %>%
   filter(Pc91==1) %>% 
   filter(Pc94==1)
 
+# determining how the mean and median countvirulence compares to previous survey years
 OCR_wout_2013_clean %>%
   group_by(year) %>% 
   summarise(mean(countvirulence)) %>% 
@@ -113,8 +127,11 @@ OCR_wout_2013_clean %>%
   arrange(desc(year))
 
   
-#### Pca race analysis for all study years only using the 30 original lines and excluding the isolates with missing data #######
 
+# Pca race analysis -------------------------------------------------------
+
+
+## for all study years only using the 30 original lines and excluding the isolates with missing data --------
 
 library(data.table)
 
@@ -129,7 +146,6 @@ OCR_n_strains_allminusNAs <-OCR_strains_allminusNAs %>%
 
 strain_counts_all <-OCR_n_strains_allminusNAs %>% 
   count(n, name= "frequency") %>% 
-  # rename(nn=frequency) %>% 
   mutate(totalNofstrains= n*frequency) %>%
   mutate(percentage= totalNofstrains/sum(totalNofstrains)) %>% 
   mutate(percentageofstrains= frequency/sum(frequency))
@@ -167,41 +183,8 @@ str(OCR_5isolates_plus_data)
 OCR_5isolates_plus_data %>% count(group,region)
 by_year <-OCR_5isolates_plus_data %>% count(group,year)
 
-#####
 
-# For all races with more than one isolate, determine what percentage were sampled first in the North, South, or both in the same year
-# sorting out any races with less than 2 isolates
-OCR_2isolates_plus <- OCR_n_strains_allminusNAs[OCR_n_strains_allminusNAs$n >= 2] #this step is technically unnecessary but keep in case want to increase the filter for strains that are present 3 or more times
-OCR_2isolates_plus_data <-dplyr::filter(OCR_strains_allminusNAs, group %in% OCR_2isolates_plus$group)
-str(OCR_2isolates_plus_data)
-# only keep strains that are present in both the north and south
-# counting the number of distinct regions for the strains, keep only those with both regions (n_regions=2)
-strains_in_both_regions <- OCR_2isolates_plus_data %>% 
-  group_by(group) %>% 
-  summarise(n_regions=n_distinct(region),.groups = 'drop') %>% 
-  as.data.frame() %>% 
-  filter(n_regions==2)
-OCR_2isolates_plus_data <-dplyr::filter(OCR_2isolates_plus_data, group %in% strains_in_both_regions$group)
-
-# only retain the first instance of a race (aka group) + region combo
-NvS_strain_appearance <-OCR_2isolates_plus_data %>% 
-  group_by(group, region) %>% 
-  filter(year==min(year)) %>% 
-  slice(1) %>% #only taking the first observation per region
-  select(year, region, group) %>% 
-  # spread into wide format
-  ungroup() %>% 
-  pivot_wider(names_from=region, values_from=year) %>% 
-  mutate(NvS_quant=North-South) %>% 
-  mutate(NvS_qual= case_when(NvS_quant>0 ~ "S", NvS_quant<0 ~ "N", NvS_quant==0 ~ "same")) %>% 
-  as.data.frame() #makes it easier to see the data
-
-NvS_strain_appearance
-
-NvS_strain_appearance %>% 
-count(NvS_qual)
-
-#visualize with a bar chart (sqrt scale) with numbers
+# visualize with a bar chart (sqrt scale) with numbers
 ggplot(strain_counts_all, aes(x=n, y=frequency)) + 
   geom_bar(stat='identity', fill="light blue")+
   theme_bw()+
@@ -215,121 +198,15 @@ ggplot(strain_counts_all, aes(x=n, y=frequency)) +
   ylab("Number of Races \n(Square root axis transformation)")+
   ggtitle("Oat Crown Rust Races")
 
-ggsave("Figure 2 Histogram races.tiff", scale=1, dpi=600, width=150, height=100, units="mm")
-
-######Now comparing the races of the northern and southern isolates##########
-####first looking at the northern strains
-OCR_N_strains_allminusNAs <- OCR_wout_2013_clean %>%
-  filter(region=="North") %>%
-  select(-c(Belle, Stainless,Leggett,HiFi,IAB605Xsel.,WIX4361.9,TAM.O.405,Pc91,Pc94,Pc96)) %>% 
-  na.omit()
-setDT(OCR_N_strains_allminusNAs)[,group :=.GRP,by = .(Pc14,Pc35,Pc36,Pc38,Pc39,Pc40,Pc45,Pc46,Pc48,Pc50,Pc51,Pc52,Pc53,Pc54,Pc55,Pc56,Pc57,Pc58,Pc59,Pc60,Pc61,Pc62,Pc63,Pc64,Pc67,Pc68,Pc70,Pc71,H548, MARVELOUS)]
-
-str(OCR_wout_2013_clean)
-str(OCR_N_strains_allminusNAs)
-
-OCR_N_n_strains_allminusNAs <-OCR_N_strains_allminusNAs %>% 
-  count(group) %>% 
-  arrange(-n)
-
-strain_N_counts_all <-OCR_N_n_strains_allminusNAs %>% 
-  count(n, name= "frequency") %>% 
-  # rename(nn=frequency) %>% 
-  mutate(totalNofstrains= n*frequency) %>%
-  mutate(percentage= totalNofstrains/sum(totalNofstrains)) %>% 
-  mutate(percentageofstrains= frequency/sum(frequency))
-sum(strain_N_counts_all$frequency)
-sum(strain_N_counts_all$totalNofstrains)
-
-ggplot(strain_N_counts_all, aes(x=n, y=frequency)) + 
-  geom_bar(stat='identity', fill="light blue")+
-  theme_bw()+
-  theme(plot.title = element_text(hjust = 0.5))+
-  geom_text(aes(label=frequency), vjust=-0.3, size=3)+
-  # scale_y_sqrt()+
-  coord_trans(y= 'sqrt')+
-  scale_y_continuous(limits=c(0,2600), expand=c(0,0))+
-  scale_x_continuous(limits=c(-0.5,47), expand=c(0,0))+
-  xlab("Number of Isolates per Race")+
-  ylab("Number of Races \n(Square root axis transformation)")+
-  ggtitle("Northern Region Oat Crown Rust Races")
-
-####Now the south
-
-OCR_S_strains_allminusNAs <- OCR_wout_2013_clean %>%
-  filter(region=="South") %>%
-  select(-c(Belle, Stainless,Leggett,HiFi,IAB605Xsel.,WIX4361.9,TAM.O.405,Pc91,Pc94,Pc96)) %>% 
-  na.omit()
-setDT(OCR_S_strains_allminusNAs)[,group :=.GRP,by = .(Pc14,Pc35,Pc36,Pc38,Pc39,Pc40,Pc45,Pc46,Pc48,Pc50,Pc51,Pc52,Pc53,Pc54,Pc55,Pc56,Pc57,Pc58,Pc59,Pc60,Pc61,Pc62,Pc63,Pc64,Pc67,Pc68,Pc70,Pc71,H548, MARVELOUS)]
-
-str(OCR_wout_2013_clean)
-str(OCR_S_strains_allminusNAs)
-
-OCR_S_n_strains_allminusNAs <-OCR_S_strains_allminusNAs %>% 
-  count(group) %>% 
-  arrange(-n)
-
-strain_S_counts_all <-OCR_S_n_strains_allminusNAs %>% 
-  count(n, name= "frequency") %>% 
-  # rename(nn=frequency) %>% 
-  mutate(totalNofstrains= n*frequency) %>%
-  mutate(percentage= totalNofstrains/sum(totalNofstrains)) %>% 
-  mutate(percentageofstrains= frequency/sum(frequency))
-sum(strain_S_counts_all$frequency)
-sum(strain_S_counts_all$totalNofstrains)
-
-ggplot(strain_S_counts_all, aes(x=n, y=frequency)) + 
-  geom_bar(stat='identity', fill="light blue")+
-  theme_bw()+
-  theme(plot.title = element_text(hjust = 0.5))+
-  geom_text(aes(label=frequency), vjust=-0.3, size=3)+
-  # scale_y_sqrt()+
-  coord_trans(y= 'sqrt')+
-  scale_y_continuous(limits=c(0,2600), expand=c(0,0))+
-  scale_x_continuous(limits=c(-0.5,47), expand=c(0,0))+
-  xlab("Number of Isolates per Race")+
-  ylab("Number of Races \n(Square root axis transformation)")+
-  ggtitle("Southern Region Oat Crown Rust Races")
+ggsave("Histogram races all years.tiff", scale=1, dpi=600, width=150, height=100, units="mm")
 
 
-####Presenting the data in one bar graph
+## 2023 Pca race analysis --------------------------------------------------
 
-# Combine the two datasets
-strain_N_counts_all <- strain_N_counts_all %>%
-  mutate(Region="North")
-
-strain_S_counts_all <- strain_S_counts_all %>%
-  mutate(Region="South")
-
-strain_regional_counts_all <- bind_rows(strain_N_counts_all, strain_S_counts_all)
-str(strain_regional_counts_all)
-
-#graphing the percentage of races in order to better compare the two, because North has more observations
-ggplot(strain_regional_counts_all, aes(x=n, y=percentageofstrains, fill=Region)) + 
-  geom_bar(stat='identity', position=position_dodge())+
-  theme_bw()+
-  theme(plot.title = element_text(hjust = 0.5))+
-  geom_text(aes(label=round(percentageofstrains*100, digits=1)), position = position_dodge(width = 1), vjust=-0.3, size=1.65)+
-  # scale_y_sqrt()+
-  coord_trans(y= 'sqrt')+
-  # scale_y_continuous(limits=c(0,2600), expand=c(0,0))+
-  # scale_x_continuous(limits=c(-0.5,47), expand=c(0,0))+
-  xlab("Number of Isolates per Race")+
-  ylab("Percentage of Races \n(Square root axis transformation)")+
-  # scale_fill_brewer(palette="Paired")+
-  ggtitle("Regional Oat Crown Rust Races")
-
-ggsave("Sup Figure S1 Histogram races N vs S.tiff", scale=0.9, dpi=300, width=2000, height=1500,units="px")
-
-
-#### Pca race analysis for 2023 only using all 40 lines, excluding missing data #######
-
-
-library(data.table)
+# for 2023 only, using all 40 lines, excluding missing data
 
 OCR_strains_2023minusNAs <- OCR_survey %>%
-  filter(year == 2023) %>% 
-  # select(-c(Belle, Stainless,Leggett,HiFi,IAB605Xsel.,WIX4361.9,TAM.O.405,Pc91,Pc94,Pc96)) %>% 
+  filter(year == 2023) %>%
   na.omit()
 setDT(OCR_strains_2023minusNAs)[,group :=.GRP,by = .(Pc14,Pc35,Pc36,Pc38,Pc39,Pc40,Pc45,Pc46,Pc48,Pc50,Pc51,Pc52,Pc53,Pc54,Pc55,Pc56,Pc57,Pc58,Pc59,Pc60,Pc61,Pc62,Pc63,Pc64,Pc67,Pc68,Pc70,Pc71,H548,MARVELOUS, Belle, Stainless,Leggett,HiFi,IAB605Xsel.,WIX4361.9,TAM.O.405,Pc91,Pc94,Pc96)]
 
@@ -342,7 +219,6 @@ OCR_n_strains_2023minusNAs <-OCR_strains_2023minusNAs %>%
 
 strain_counts_2023 <-OCR_n_strains_2023minusNAs %>% 
   count(n, name= "frequency") %>% 
-  # rename(nn=frequency) %>% 
   mutate(totalNofstrains= n*frequency) %>%
   mutate(percentage= totalNofstrains/sum(totalNofstrains)) %>% 
   mutate(percentageofstrains= frequency/sum(frequency))
@@ -370,13 +246,12 @@ isolate31_all <-OCR_strains_2023minusNAs %>%
   filter(group==31)
 isolate31_all %>% count(region, year)
 
-# Sorting out and printing the isolates with the least amount of virulences
-head(OCR_strains_2023minusNAs[order(OCR_strains_2023minusNAs$countvirulence),], n=20L)
-
-#####
 
 
-#create boxplot showing countvirulence by year with the alpha (transparency) corresponding to the relative amount of samples
+# Boxplot count virulence -------------------------------------------------
+
+
+# create boxplot showing countvirulence by year with the alpha (transparency) corresponding to the relative amount of samples
 
 # counting up the number of observations per year and dividing by the largest to get values between 0 and 1
 samples_per_year <- OCR_wout_2013_clean %>% count(year, sort = FALSE) %>% mutate(n_adjusted=n/max(n))
@@ -402,7 +277,7 @@ boxplot1 <-ggplot(OCR_wout_2013_clean, aes(x=factor(year, levels=1993:2023), y=c
   
 boxplot1
 
-#######manually print out a legend color scale for the side because unable to print out a legend using alpha
+# manually print out a legend color scale for the side because unable to print out a legend using alpha
 
 library(ggpubr)
 
@@ -420,28 +295,141 @@ boxplot_legend
 boxplotwlegend <- ggarrange(boxplot1, boxplot_legend, widths=c(1,0.12),
                           nrow=1)
 boxplotwlegend
-ggsave("Figure 3 boxplotwlegend.tiff", scale=1, dpi=600, width=150, height=113, units="mm", path=".", bg="white")
-
-#############################
-
-# Regression analysis for the mean isolate virulence per year (using the mean for only the original 30 lines)
-OCR_vir_regression<-OCR_wout_2013_clean
-OCR_vir_regression$countvirulenceOG30 = rowSums(OCR_wout_2013_clean[,c(8:35,39,40)], na.rm = TRUE)
-tail(OCR_vir_regression)
-
-#take the mean for each year
-# counting up the number of observations per year and dividing by the largest to get values between 0 and 1
-meanvir <-aggregate(OCR_vir_regression$countvirulenceOG30, list(OCR_vir_regression$year), FUN=mean)
-# Group.1=year
-# x=meanvirulence
-
-lmVir1 =lm(x~Group.1, data=meanvir)
-summary(lmVir1)
+ggsave("Boxplot all years with legend.tiff", scale=1, dpi=600, width=150, height=113, units="mm", path=".", bg="white")
 
 
-###################################################################
-#building a heatmap of virulences per differential line over time #
-###################################################################
+
+# 2023 data heatmap -------------------------------------------------------
+
+# starting with the unconverted 0-9 data
+# converting 0-9 scale to 0-1 scale with three levels, for visualization
+# 0-3=0
+# 4-6=0.2 (intermediate resistance, 1 or greater (some sporulation))
+# 7-9=1
+
+# The intermediate value is less than 0.5 so that the clustering algorithm puts more weight into S virulence rating when clustering
+# Take columns 8-47 with the rating data and change to above rating system
+str(raw_OCR_survey)
+OCR_2023_heatmap <- raw_OCR_survey %>% 
+  filter(year == 2023) %>% 
+  mutate(across(c(8:47),
+                ~case_when(. <4 ~ 0,
+                           . ==4 ~ 0.2,
+                           . ==5 ~ 0.2,
+                           . ==6 ~ 0.2,
+                           . >6 ~ 1))) %>% 
+  select(!(MARVELOUS))
+str(OCR_2023_heatmap)
+
+#load required packages
+library(ComplexHeatmap)
+library(circlize)
+#library(RColorBrewer) #another alternative package for colors if so desired
+library(colorRamps)
+
+#Reassigning the isolate variable (first column) to row names
+OCR_2023_heatmap_named_rows <- OCR_2023_heatmap[,-1]
+rownames(OCR_2023_heatmap_named_rows) <- OCR_2023_heatmap[,1]
+
+# removing supplementary data columns
+OCR_2023_heatmap_matrix <- as.matrix(OCR_2023_heatmap_named_rows[  ,c(7:ncol(OCR_2023_heatmap_named_rows))])
+str(OCR_2023_heatmap_matrix)
+
+# preparing data for percentage virulent row annotations for each differential line
+str(OCR_wout_2013_clean)
+heatmap_data_2023 <- OCR_wout_2013_clean %>% group_by(year) %>%
+  summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100)) %>% 
+  filter(year==2023) %>% 
+  select(!(MARVELOUS))
+
+# change data into long format
+heatmap_data_long_2023 <-gather(heatmap_data_2023, differential_line, percent_virulent, Pc14:Stainless) %>% 
+  select(-year)
+str(heatmap_data_long_2023)
+#converting into a matrix
+matrix_percent <- heatmap_data_long_2023 %>% 
+  select(-differential_line) %>% 
+  as.matrix()
+
+# manually assigning a vector of colors based on the percentage of virulence for each accession using colorRampPalette to simulate the YlOrRd color palette
+# Load the RColorBrewer package to check the original YlOrRd palette (optional) 
+# install.packages("RColorBrewer") 
+library("RColorBrewer")
+# View the original YlOrRd colors (optional) 
+display.brewer.pal(9, "YlOrRd") 
+# Display the 9-color version for reference 
+# Manually specify colors similar to the YlOrRd palette 
+ylorrd_colors <- c("#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C", "#FC4E2A", "#E31A1C", "#BD0026", "#800026") 
+# Create a color ramp function from these colors 
+ylorrd_ramp <- colorRampPalette(ylorrd_colors) 
+# Generate 100 colors from this palette 
+custom_palette <- ylorrd_ramp(101) 
+# Plot to visualize the recreated palette (optional) 
+image(1:100, 1, as.matrix(1:100), col = custom_palette, xlab = "YlOrRd", ylab = "", yaxt = "n", bty = "n")
+palette_func <-colorRampPalette(c("white", "yellow","red")) 
+colors=palette_func(101)
+custom_palette
+# creating a vector of colors based on the percentage values of virulence to each differential line
+color_vector <- custom_palette[as.numeric(cut(matrix_percent,breaks=101, labels=FALSE))]
+color_vector
+
+# for a simpler palette, but not as good at showing differences over a wide range of values
+# palette_func <-colorRampPalette(c("white", "yellow","red")) 
+# colors=palette_func(101)
+# color_vector <- colors[as.numeric(cut(matrix_percent,breaks=101, labels=FALSE))] #could also use
+# color_vector
+
+# Manually adding a zero to the beginning of the one digit numbers so they stack up correctly
+matrix_percent<-round(matrix_percent, digits=0)
+matrix_percent <- matrix(sprintf("%02d", matrix_percent), nrow(matrix_percent))
+# adding leading and trailing spaces to characters so that they have space in the 
+# the just parameter does not work correctly so one has to do this manual work around 
+matrix_percent <- matrix(paste(" ", matrix_percent, " ", sep = ""), nrow = nrow(matrix_percent)) 
+
+# setting up the row annotation
+row_ha = rowAnnotation("Percent\nVirulent"= anno_text(matrix_percent, gp=gpar(fill=color_vector, fontsize=10, just="right"), show_name = TRUE))
+
+
+# preparing data for the column annotation N vs S
+Region1 <- select(OCR_2023_heatmap, region)
+Region1 <- unlist(Region1)
+Region1 <- unname(Region1)
+typeof(Region1)
+is.character(Region1) #should return TRUE
+tOCR_2023_heatmap_matrix <- t(OCR_2023_heatmap_matrix) #transpose the matrix
+#adopting colors from ColorBrewer 2.0 for similarity to purple=north and green=south in the "Difference in percentage of virulent isolates per year by region" graph, although I made the purple is a "rung" darker than the green on the scale here (https://colorbrewer2.org/#type=diverging&scheme=PRGn&n=8) so they are easier to distinguish
+column_ha = HeatmapAnnotation(Region=Region1, col=list(Region= c("North" ="#762a83", "South" = "#5aae61"))) 
+
+# making a custom color palette for the heatmap, using a 5 color scale without the 3 and 4 intermediate values to emphasize the virulent isolates while still showing a difference between the HR and MR
+yellowred = colorRampPalette(c("lightyellow","red3"), space="rgb")(4)
+yellowred =yellowred[-c(2)]
+
+# using Heatmap from the ComplexHeatmap package
+# Different clustering methods with hclust
+# The default method for clustering_distance_rows is "euclidean" and the default method for clustering_method_rows is "complete".
+scoring_plot <- Heatmap(tOCR_2023_heatmap_matrix,
+                        show_row_names = TRUE,
+                        show_column_names = FALSE,
+                        row_names_side = "left",
+                        border_gp = gpar(col="black"),
+                        column_names_gp = gpar(cex=0.8),
+                        column_title = "Isolates",
+                        row_title = "Differential Lines",
+                        top_annotation = column_ha,
+                        left_annotation= row_ha,
+                        heatmap_legend_param = list(title = "Differential\nResponse", color_bar = "discrete", at = c(0, 0.2, 1), labels = c("HR", "MR", "S")), col = yellowred)
+
+scoring_plot
+
+
+# Save the plots to a file
+png("Heatmap 2023 isolates.tiff", width = 3500, height = 2800, units="px", res=300)
+#pdf("scoring_plot_.pdf")
+scoring_plot
+dev.off()
+
+
+# Heatmap of virulences per differential line over time -------------------
 
 library("colorspace")
 
@@ -449,11 +437,11 @@ str(OCR_wout_2013_clean)
 heatmap_data <- OCR_wout_2013_clean %>% group_by(year) %>%
   summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100))
 
-### change data into long format
+# change data into long format
 heatmap_data_long <-gather(heatmap_data, differential_line, percent_virulent, Pc14:Stainless)
 str(heatmap_data_long)
 
-#createheatmap
+# createheatmap
 heatmap_year <-ggplot(heatmap_data_long, aes(factor(year), factor(differential_line, levels=rev(unique(differential_line))), fill=percent_virulent))+
   geom_tile(show.legend = FALSE)+
   scale_fill_continuous_sequential(palette = "YlOrRd", rev = TRUE)+
@@ -463,7 +451,7 @@ heatmap_year <-ggplot(heatmap_data_long, aes(factor(year), factor(differential_l
   ggtitle("Percentage of virulent isolates per year")
 heatmap_year
 
-#Order the heatmap rows by hierarchical clustering so that patterns are easier to see
+# Order the heatmap rows by hierarchical clustering so that patterns are easier to see
 
 heatmap_data_matrix <- as.matrix(heatmap_data[, -1]) # -1 to omit categories from matrix
 # Cluster based on euclidean distance
@@ -522,11 +510,11 @@ OCR_survey_clean %>%
 # bind the means together
 Mean_by_decade <- bind_rows("1993-2002"= Mean_1993_to_2002, "2003-2012"= Mean_2003_to_2012, "2013-2022"= Mean_2013_to_2023, .id="Decade")
 
-### change data into long format
+# change data into long format
 Mean_by_decade_long <-gather(Mean_by_decade, differential_line, percent_virulent, Pc14:Stainless)
 str(Mean_by_decade_long)
 
-#ordered heatmap by decade
+# ordered heatmap by decade
 heatmap_decade_ordered <- ggplot(Mean_by_decade_long, aes(factor(Decade), factor(differential_line, levels=rev(unique(differential_line))), fill=percent_virulent))+
   geom_tile(show.legend = FALSE)+
   scale_y_discrete(limits = colnames(heatmap_data_matrix)[clust$order])+
@@ -564,7 +552,7 @@ annotate_figure(arrangedplotsordered,
                 left = text_grob("Differential Line", rot = 90))
 
 
-####### Linear regression for each pc gene over time ###########
+# Linear regression for each pc gene over time ----------------------------
 # https://www.datacamp.com/tutorial/linear-regression-R
 # lm([target] ~ [predictor / features], data = [data source])
 
@@ -639,11 +627,12 @@ annotate_figure(arrangedplotsordered_slope,
                 left = text_grob("Differential Line", rot = 90, size=13))
 
 
-ggsave("Figure 4 heatmap 450dpi.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
+ggsave("Supplementary Figure heatmap 30 years.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
 
-#################################################
-#Plotting the heat map of observations per state#
-#################################################
+
+# Plotting the heat map of observations per state -------------------------
+
+
 
 library("rnaturalearth")
 library("sf")
@@ -1211,172 +1200,7 @@ OCR_wout_2013_clean %>%
   summarise(total_count=n(),.groups = 'drop') %>% 
   as.data.frame()
 
-###############################
-# plotting a heat map of the 2023 data
-# starting with the unconverted 0-9 data
-raw_OCR_2023 <- filter(raw_OCR_survey, year == 2023)
-# converting 0-9 scale to 0-2 scale, for visualization
-# 0-3=0
-# 4-6=0.2 (intermediate resistance, 1 or greater (some sporulation))
-# 7-9=1
-# Take columns 8-47 with the rating data and change to above rating system
-# The intermediate value is less than 0.5 so that the clustering algorithm puts more weight into virulence when clustering
-str(raw_OCR_2023)
-OCR_2023_heatmap <- raw_OCR_2023 %>% 
-  mutate(across(c(8:47),
-                ~case_when(. <4 ~ 0,
-                           . ==4 ~ 0.2,
-                           . ==5 ~ 0.2,
-                           . ==6 ~ 0.2,
-                           . >6 ~ 1))) %>% 
-  select(!(MARVELOUS))
-str(OCR_2023_heatmap)
 
-#load required packages
-library(ComplexHeatmap)
-library(circlize)
-#library(RColorBrewer) #another alternative package for colors if so desired
-library(colorRamps)
-
-#Reassigning the isolate variable (first column) to row names
-OCR_2023_heatmap_named_rows <- OCR_2023_heatmap[,-1]
-rownames(OCR_2023_heatmap_named_rows) <- OCR_2023_heatmap[,1]
-
-OCR_2023_heatmap_matrix <- as.matrix(OCR_2023_heatmap_named_rows[  ,c(7:ncol(OCR_2023_heatmap_named_rows))])
-str(OCR_2023_heatmap_matrix)
-#Now, make heatmap
-
-# specifying colors for the N vs S categories
-Region1 <- select(OCR_2023_heatmap, region)
-Region1 <- unlist(Region1)
-Region1 <- unname(Region1)
-typeof(Region1)
-is.character(Region1) #should return TRUE
-row_ha = rowAnnotation(Region=Region1, col=list(Region= c("North" ="#762a83", "South" = "#5aae61"))) 
-#adopting colors from ColorBrewer 2.0 for similarity to purple=north and green=south in the "Difference in percentage of virulent isolates per year by region" graph, although I made the purple is a "rung" darker than the green on the scale here (https://colorbrewer2.org/#type=diverging&scheme=PRGn&n=8) so they are easier to distinguish
-
-# specifying colors for the States
-# States1 <- select(OCR_2023_heatmap, state)
-# States1 <- unlist(States1)
-# States1 <- unname(States1)
-# typeof(States1)
-# is.character(States1) #should return TRUE
-# row_ha = rowAnnotation(States=States1, col=list(State= c("MN"= "red", "SD"="orange", "CA"="yellow", "TX"="green", "LA"="blue", "MS"="purple", "AL"="pink", "GA"="brown","FL"="gray")))
-# Can't figure out why the state colors are not being applied successfully (manual states that absent direction, the colors will be randomly chosen, which is what is happening)
-
-# if doing both, would have to figure out way to use the information as a df, however, the state is too much information for now
-# row_ha = rowAnnotation(Region=Region1, col=list(Region= c("North" ="green", "South" = "blue")),
-#                        States=States1, col=list(State= c("MN"= "red", "SD"="Blue", "CA"="purple", "TX"="yellow", "LA"="black", "MS"="brown", "AL"="pink", "GA"="green","FL"="orange")))
-
-# making a custom color palette for the heatmap, using a 5 color scale without the 3 and 4 intermediate values to emphasize the virulent isolates while still showing a difference between the HR and MR
-yellowred = colorRampPalette(c("lightyellow","red3"), space="rgb")(4)
-yellowred =yellowred[-c(2)]
-
-# using Heatmap from the Complex Heatmap package
-#Different clustering methods with hclust
-#The default method for clustering_distance_rows is "euclidean" and the default method for clustering_method_rows is "complete".
-scoring_plot <- Heatmap(OCR_2023_heatmap_matrix,
-                        show_row_names = FALSE,
-                        column_names_side = "top",
-                        # row_names_gp = gpar(cex=0.3, fontface = ifelse(grepl("Pc", row_names), "italic", "plain")),
-                        column_names_gp = gpar(cex=0.8),
-                        width = unit(170, "mm"),
-                        left_annotation = row_ha,
-                        column_title = NULL,
-                        # lgd=Legend(border="red"),
-                        # heatmap_legend_param = list(title = NULL, at = c(0, 1, 2), labels = c("0", "1", "2")), col = colorRamp2(c(2,1,0), c("red", "orange", "light yellow")))
-                        heatmap_legend_param = list(title = "Differential \n Response", color_bar = "discrete", at = c(0, 0.2, 1), labels = c("HR", "MR", "S")), col = yellowred)
-
-scoring_plot
-
-# annotations for the side of the chart, with percentage virulent
-str(OCR_wout_2013_clean)
-heatmap_data_2023 <- OCR_wout_2013_clean %>% group_by(year) %>%
-  summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100)) %>% 
-  filter(year==2023) %>% 
-  select(!(MARVELOUS))
-  
-
-### change data into long format
-heatmap_data_long_2023 <-gather(heatmap_data_2023, differential_line, percent_virulent, Pc14:Stainless) %>% 
-  select(-year)
-str(heatmap_data_long_2023)
-#converting into a matrix
-matrix_percent <- heatmap_data_long_2023 %>% 
-  select(-differential_line) %>% 
-  as.matrix()
-# colnames(matrix_percent) <-NULL
-
-#manually assigning a vector of colors based on the percentage of virulence for each accession using colorRampPalette to simulate the YlOrRd color palette 
-# Load the RColorBrewer package to check the original YlOrRd palette (optional) 
-# install.packages("RColorBrewer") 
-library("RColorBrewer")
-# View the original YlOrRd colors (optional) 
-display.brewer.pal(9, "YlOrRd") 
-# Display the 9-color version for reference 
-# Manually specify colors similar to the YlOrRd palette 
-ylorrd_colors <- c("#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C", "#FC4E2A", "#E31A1C", "#BD0026", "#800026") 
-# Create a color ramp function from these colors 
-ylorrd_ramp <- colorRampPalette(ylorrd_colors) 
-# Generate 100 colors from this palette 
-custom_palette <- ylorrd_ramp(101) 
-# Plot to visualize the recreated palette (optional) 
-image(1:100, 1, as.matrix(1:100), col = custom_palette, xlab = "YlOrRd", ylab = "", yaxt = "n", bty = "n")
-palette_func <-colorRampPalette(c("white", "yellow","red")) 
-colors=palette_func(101)
-custom_palette
-color_vector <- custom_palette[as.numeric(cut(matrix_percent,breaks=101, labels=FALSE))] #could also use
-color_vector
-
-# for a simpler palette
-# palette_func <-colorRampPalette(c("white", "yellow","red")) 
-# colors=palette_func(101)
-# color_vector <- colors[as.numeric(cut(matrix_percent,breaks=101, labels=FALSE))] #could also use
-# color_vector
-
-# Manually adding a zero to the begining of the shorter numbers so they stack up correctly
-matrix_percent<-round(matrix_percent, digits=0)
-matrix_percent <- matrix(sprintf("%02d", matrix_percent), nrow(matrix_percent))
-# adding leading and trailing spaces to characters so that they have space in the 
-# the just parameter does not work correctly and will do this manual work around 
-matrix_percent <- matrix(paste(" ", matrix_percent, " ", sep = ""), nrow = nrow(matrix_percent)) 
-
-col_fun2 = colorRamp2(c(0, 50, 100), c("white", "yellow", "red"))
-row_ha = rowAnnotation("Percent\nVirulent"=matrix_percent, col = list("Percent\nVirulent" = col_fun2))
-#trying to add the numbers to the plot
-# row_ha = rowAnnotation("Percent\nVirulent"= matrix_percent, numeric=anno_numeric(matrix_percent, bg_gp = gpar(fill = "#00000000", col = "#00000000")), col = list("Percent\nVirulent" = col_fun2)) 
-# row_ha = rowAnnotation("Percent\nVirulent"= matrix_percent, numeric=anno_text(matrix_percent), col = list("Percent\nVirulent" = col_fun2)) 
-row_ha = rowAnnotation("Percent\nVirulent"= anno_text(matrix_percent, gp=gpar(fill=color_vector, fontsize=10, just="right"), show_name = TRUE))
-
-
-tOCR_2023_heatmap_matrix <- t(OCR_2023_heatmap_matrix) #transpose the matrix
-column_ha = HeatmapAnnotation(Region=Region1, col=list(Region= c("North" ="#762a83", "South" = "#5aae61"))) 
-
-
-scoring_plot <- Heatmap(tOCR_2023_heatmap_matrix,
-                        show_row_names = TRUE,
-                        show_column_names = FALSE,
-                        row_names_side = "left",
-                        border_gp = gpar(col="black"),
-                        # row_names_gp = gpar(cex=0.3, fontface = ifelse(grepl("Pc", row_names), "italic", "plain")),
-                        column_names_gp = gpar(cex=0.8),
-                        column_title = "Isolates",
-                        row_title = "Differential Lines",
-                        # width = unit(170, "mm"),
-                        top_annotation = column_ha,
-                        left_annotation= row_ha,
-                        # lgd=Legend(border="red"),
-                        # heatmap_legend_param = list(title = NULL, at = c(0, 1, 2), labels = c("0", "1", "2")), col = colorRamp2(c(2,1,0), c("red", "orange", "light yellow")))
-                        heatmap_legend_param = list(title = "Differential\nResponse", color_bar = "discrete", at = c(0, 0.2, 1), labels = c("HR", "MR", "S")), col = yellowred)
-
-scoring_plot
-
-
-# Save the plots to a file
-png("heatmap isolates.tiff", width = 3500, height = 2800, units="px", res=300)
-#pdf("scoring_plot_.pdf")
-scoring_plot
-dev.off()
 
 ###################################################################
 # making a violin plot to compare N and S
