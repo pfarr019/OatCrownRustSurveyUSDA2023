@@ -246,6 +246,159 @@ isolate31_all <-OCR_strains_2023minusNAs %>%
   filter(group==31)
 isolate31_all %>% count(region, year)
 
+# Plotting the heat map of observations per state -------------------------
+
+## Only 2023 ---------------------------------------------------------------
+
+states_us <- ne_states(country="United States of America",returnclass = 'sf')
+class(states_us)
+
+#working from the original dataframe, need to rename state column to postal so that it merges correctly with the sf object 
+str(OCR_survey)
+OCR_survey_2023 <- OCR_survey %>% 
+  filter(year == 2023)
+str(OCR_survey_2023)
+samples_per_state <- OCR_survey_2023 %>% count(state, sort = FALSE, name="rust_count") %>% rename(postal="state")
+#add region to the samples_per_state by matching columns from OCR survey
+# samples_per_state <-left_join(samples_per_state, OCR_survey, by= "postal")
+# merge(samples_per_state, OCR_survey[, c("state", "region")], by="state")
+# %>% rename(postal="state")
+
+#merge the sf and the samples_per_state data frame
+states_us <- merge(states_us, samples_per_state, all = TRUE)
+
+#read in a simple CSV with the regions N vs S defined and merge with states_us
+regions_key <- read.csv("Postal codes and regions.csv")
+states_us <-merge(states_us, regions_key, by="postal")
+
+#statistics on the percentages for each state for the results section
+sum(samples_per_state$rust_count)
+samples_per_state$perc_per_state =(samples_per_state$rust_count/sum(samples_per_state$rust_count)*100)
+arrange(samples_per_state, rust_count)
+# Stats on North vs South 
+str(OCR_survey_2023)
+nrow(OCR_survey_2023[OCR_survey_2023$region == 'South', ])
+nrow(OCR_survey_2023[OCR_survey_2023$region == 'North', ])
+
+(mainland <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt", name="Sample count")+
+    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
+    geom_sf(fill = "transparent", color = "black", linewidth=0.3, #adding a thick border around the two regions
+            data = . %>% group_by(rust_region) %>% summarise()) +
+    coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2500000), ylim = c(-2300000, 730000)))
+
+(alaska <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
+    theme(legend.position = "none")+
+    geom_sf_text(aes(label = rust_count), size = 2, fontface = "bold") +
+    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
+    coord_sf(crs = st_crs(3467), xlim = c(-2400000, 1600000), ylim = c(200000, 2500000), expand = FALSE, datum = NA))+
+  xlab("") + ylab("")
+
+(hawaii  <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
+    theme(legend.position = "none")+
+    coord_sf(crs = st_crs(4135), xlim = c(-161, -154), ylim = c(18, 
+                                                                23), expand = FALSE, datum = NA))
+
+mainland + xlab("Longitude") + ylab("Latitude") +
+  ggtitle("2023 Rust survey samples by state")+
+  annotation_custom(
+    grob = ggplotGrob(alaska + theme(axis.title.x=element_blank(), axis.title.y=element_blank())),
+    xmin = -2750000,
+    xmax = -2750000 + (1600000 - (-2400000))/2.5,
+    ymin = -2450000,
+    ymax = -2450000 + (2500000 - 200000)/2.5
+  ) +
+  annotation_custom(
+    grob = ggplotGrob(hawaii),
+    xmin = -1250000,
+    xmax = -1250000 + (-154 - (-161))*120000,
+    ymin = -2450000,
+    ymax = -2450000 + (23 - 18)*120000
+  )
+
+ggsave("Figure 1 Rust sample map 2023.tiff", scale=1, dpi=600, width=178, units="mm")
+
+
+
+library("rnaturalearth")
+library("sf")
+
+## All years, from 1993-2023 -----------------------------------------------
+
+states_us <- ne_states(country="United States of America",returnclass = 'sf')
+class(states_us)
+
+#working from the original dataframe, need to rename state column to postal so that it merges correctly with the sf object 
+str(OCR_survey)
+samples_per_state <- OCR_survey %>% count(state, sort = FALSE, name="rust_count") %>% rename(postal="state")
+#add region to the samples_per_state by matching columns from OCR survey
+# samples_per_state <-left_join(samples_per_state, OCR_survey, by= "postal")
+# merge(samples_per_state, OCR_survey[, c("state", "region")], by="state")
+# %>% rename(postal="state")
+
+#merge the sf and the samples_per_state data frame
+states_us <- merge(states_us, samples_per_state, all = TRUE)
+
+#read in a simple CSV with the regions N vs S defined and merge with states_us
+regions_key <- read.csv("Postal codes and regions.csv")
+states_us <-merge(states_us, regions_key, by="postal")
+
+#statistics on the percentages for each state for the results section
+sum(samples_per_state$rust_count)
+samples_per_state$perc_per_state =(samples_per_state$rust_count/sum(samples_per_state$rust_count)*100)
+arrange(samples_per_state, rust_count)
+# Stats on North vs South 
+str(OCR_survey)
+nrow(OCR_survey[OCR_survey$region == 'South', ])
+nrow(OCR_survey[OCR_survey$region == 'North', ])
+
+(mainland <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt", name="Sample count")+
+    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
+    geom_sf(fill = "transparent", color = "black", linewidth=0.3, #adding a thick border around the two regions
+            data = . %>% group_by(rust_region) %>% summarise()) +
+    coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2500000), ylim = c(-2300000, 730000)))
+
+(alaska <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
+    theme(legend.position = "none")+
+    geom_sf_text(aes(label = rust_count), size = 2, fontface = "bold") +
+    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
+    coord_sf(crs = st_crs(3467), xlim = c(-2400000, 1600000), ylim = c(200000, 2500000), expand = FALSE, datum = NA))+
+  xlab("") + ylab("")
+
+(hawaii  <- ggplot(data = states_us) +
+    geom_sf(data=states_us, aes(fill = rust_count)) +
+    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
+    theme(legend.position = "none")+
+    coord_sf(crs = st_crs(4135), xlim = c(-161, -154), ylim = c(18, 
+                                                                23), expand = FALSE, datum = NA))
+
+mainland + xlab("Longitude") + ylab("Latitude") +
+  ggtitle("1993-2023 Rust survey samples by state")+
+  annotation_custom(
+    grob = ggplotGrob(alaska + theme(axis.title.x=element_blank(), axis.title.y=element_blank())),
+    xmin = -2750000,
+    xmax = -2750000 + (1600000 - (-2400000))/2.5,
+    ymin = -2450000,
+    ymax = -2450000 + (2500000 - 200000)/2.5
+  ) +
+  annotation_custom(
+    grob = ggplotGrob(hawaii),
+    xmin = -1250000,
+    xmax = -1250000 + (-154 - (-161))*120000,
+    ymin = -2450000,
+    ymax = -2450000 + (23 - 18)*120000
+  )
+
+ggsave("Rust sample map 1993-2023.tiff", scale=1, dpi=600, width=178, units="mm")
 
 
 # Boxplot count virulence -------------------------------------------------
@@ -428,6 +581,29 @@ png("Heatmap 2023 isolates.tiff", width = 3500, height = 2800, units="px", res=3
 scoring_plot
 dev.off()
 
+# Violin Plot N vs S ------------------------------------------------------
+
+
+# making a violin plot to compare N and S
+library(cowplot)
+OCR_2023 <- filter(OCR_wout_2013_clean, year == 2023)
+# Perform a wilcox test
+compare_means(countvirulence ~ region, data = OCR_2023)
+my_comparisons <- list(c("North", "South"))
+violin_plot <- ggplot(OCR_2023, aes(x=region, y=countvirulence, fill=region)) + 
+  geom_violin(trim=TRUE)+
+  theme_minimal_hgrid()+
+  ylim(0,40)+
+  coord_cartesian(expand=FALSE)+
+  scale_fill_manual(values=c("#762a83", "#5aae61"))+
+  labs(title="Distribution of isolate virulence by region", y="Number of virulences per isolate", x="Region")+
+  theme(legend.position="none")+
+  geom_boxplot(width=0.1, fill="white", color="light gray", outlier.size=3)+
+  stat_compare_means( aes(label = paste0(..method.., "\n", "p = ", ..p.format..)), label.x = 1.35, label.y = 35)
+violin_plot
+
+ggsave("N vs S violin plot.tiff", scale=1, units="mm")
+
 
 # Heatmap of virulences per differential line over time -------------------
 
@@ -552,7 +728,7 @@ annotate_figure(arrangedplotsordered,
                 left = text_grob("Differential Line", rot = 90))
 
 
-# Linear regression for each pc gene over time ----------------------------
+## Linear regression for each pc gene over time ----------------------------
 # https://www.datacamp.com/tutorial/linear-regression-R
 # lm([target] ~ [predictor / features], data = [data source])
 
@@ -630,162 +806,8 @@ annotate_figure(arrangedplotsordered_slope,
 ggsave("Supplementary Figure heatmap 30 years.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
 
 
-# Plotting the heat map of observations per state -------------------------
 
-
-
-library("rnaturalearth")
-library("sf")
-
-states_us <- ne_states(country="United States of America",returnclass = 'sf')
-class(states_us)
-
-#working from the original dataframe, need to rename state column to postal so that it merges correctly with the sf object 
-str(OCR_survey)
-samples_per_state <- OCR_survey %>% count(state, sort = FALSE, name="rust_count") %>% rename(postal="state")
-#add region to the samples_per_state by matching columns from OCR survey
-# samples_per_state <-left_join(samples_per_state, OCR_survey, by= "postal")
-# merge(samples_per_state, OCR_survey[, c("state", "region")], by="state")
-# %>% rename(postal="state")
-
-#merge the sf and the samples_per_state data frame
-states_us <- merge(states_us, samples_per_state, all = TRUE)
-
-#read in a simple CSV with the regions N vs S defined and merge with states_us
-regions_key <- read.csv("Postal codes and regions.csv")
-states_us <-merge(states_us, regions_key, by="postal")
-
-#statistics on the percentages for each state for the results section
-sum(samples_per_state$rust_count)
-samples_per_state$perc_per_state =(samples_per_state$rust_count/sum(samples_per_state$rust_count)*100)
-arrange(samples_per_state, rust_count)
-# Stats on North vs South 
-str(OCR_survey)
-nrow(OCR_survey[OCR_survey$region == 'South', ])
-nrow(OCR_survey[OCR_survey$region == 'North', ])
-
-(mainland <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt", name="Sample count")+
-    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
-    geom_sf(fill = "transparent", color = "black", linewidth=0.3, #adding a thick border around the two regions
-            data = . %>% group_by(rust_region) %>% summarise()) +
-    coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2500000), ylim = c(-2300000, 730000)))
-
-(alaska <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
-    theme(legend.position = "none")+
-    geom_sf_text(aes(label = rust_count), size = 2, fontface = "bold") +
-    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
-    coord_sf(crs = st_crs(3467), xlim = c(-2400000, 1600000), ylim = c(200000, 2500000), expand = FALSE, datum = NA))+
-  xlab("") + ylab("")
-
-(hawaii  <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
-    theme(legend.position = "none")+
-    coord_sf(crs = st_crs(4135), xlim = c(-161, -154), ylim = c(18, 
-                                                                23), expand = FALSE, datum = NA))
-
-mainland + xlab("Longitude") + ylab("Latitude") +
-  ggtitle("1993-2023 Rust survey samples by state")+
-  annotation_custom(
-    grob = ggplotGrob(alaska + theme(axis.title.x=element_blank(), axis.title.y=element_blank())),
-    xmin = -2750000,
-    xmax = -2750000 + (1600000 - (-2400000))/2.5,
-    ymin = -2450000,
-    ymax = -2450000 + (2500000 - 200000)/2.5
-  ) +
-  annotation_custom(
-    grob = ggplotGrob(hawaii),
-    xmin = -1250000,
-    xmax = -1250000 + (-154 - (-161))*120000,
-    ymin = -2450000,
-    ymax = -2450000 + (23 - 18)*120000
-  )
-
-ggsave("Figure 1 Rust sample map.tiff", scale=1, dpi=600, width=178, units="mm")
-
-
-### now doing just for the 2023 data
-
-states_us <- ne_states(country="United States of America",returnclass = 'sf')
-class(states_us)
-
-#working from the original dataframe, need to rename state column to postal so that it merges correctly with the sf object 
-str(OCR_survey)
-OCR_survey_2023 <- OCR_survey %>% 
-  filter(year == 2023)
-str(OCR_survey_2023)
-samples_per_state <- OCR_survey_2023 %>% count(state, sort = FALSE, name="rust_count") %>% rename(postal="state")
-#add region to the samples_per_state by matching columns from OCR survey
-# samples_per_state <-left_join(samples_per_state, OCR_survey, by= "postal")
-# merge(samples_per_state, OCR_survey[, c("state", "region")], by="state")
-# %>% rename(postal="state")
-
-#merge the sf and the samples_per_state data frame
-states_us <- merge(states_us, samples_per_state, all = TRUE)
-
-#read in a simple CSV with the regions N vs S defined and merge with states_us
-regions_key <- read.csv("Postal codes and regions.csv")
-states_us <-merge(states_us, regions_key, by="postal")
-
-#statistics on the percentages for each state for the results section
-sum(samples_per_state$rust_count)
-samples_per_state$perc_per_state =(samples_per_state$rust_count/sum(samples_per_state$rust_count)*100)
-arrange(samples_per_state, rust_count)
-# Stats on North vs South 
-str(OCR_survey_2023)
-nrow(OCR_survey_2023[OCR_survey_2023$region == 'South', ])
-nrow(OCR_survey_2023[OCR_survey_2023$region == 'North', ])
-
-(mainland <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt", name="Sample count")+
-    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
-    geom_sf(fill = "transparent", color = "black", linewidth=0.3, #adding a thick border around the two regions
-            data = . %>% group_by(rust_region) %>% summarise()) +
-    coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2500000), ylim = c(-2300000, 730000)))
-
-(alaska <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
-    theme(legend.position = "none")+
-    geom_sf_text(aes(label = rust_count), size = 2, fontface = "bold") +
-    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
-    coord_sf(crs = st_crs(3467), xlim = c(-2400000, 1600000), ylim = c(200000, 2500000), expand = FALSE, datum = NA))+
-  xlab("") + ylab("")
-
-(hawaii  <- ggplot(data = states_us) +
-    geom_sf(data=states_us, aes(fill = rust_count)) +
-    scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
-    theme(legend.position = "none")+
-    coord_sf(crs = st_crs(4135), xlim = c(-161, -154), ylim = c(18, 
-                                                                23), expand = FALSE, datum = NA))
-
-mainland + xlab("Longitude") + ylab("Latitude") +
-  ggtitle("2023 Rust survey samples by state")+
-  annotation_custom(
-    grob = ggplotGrob(alaska + theme(axis.title.x=element_blank(), axis.title.y=element_blank())),
-    xmin = -2750000,
-    xmax = -2750000 + (1600000 - (-2400000))/2.5,
-    ymin = -2450000,
-    ymax = -2450000 + (2500000 - 200000)/2.5
-  ) +
-  annotation_custom(
-    grob = ggplotGrob(hawaii),
-    xmin = -1250000,
-    xmax = -1250000 + (-154 - (-161))*120000,
-    ymin = -2450000,
-    ymax = -2450000 + (23 - 18)*120000
-  )
-
-ggsave("Figure 1 Rust sample map 2021.tiff", scale=1, dpi=600, width=178, units="mm")
-
-##############################################################
-#Comparing the southern to northern accessions with a heatmap#
-##############################################################
+# Comparing the S to N accessions wtih a Heatmap --------------------------
 
 str(OCR_wout_2013_clean)
 heatmap_data_byregion <- OCR_wout_2013_clean %>% group_by(region, year) %>%
@@ -947,9 +969,8 @@ arrangeddiffplotswgroups <- annotate_figure(arrangeddiffplotswgroups,
 ggsave("Figure 6 N vs S heatmap 450dpi.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
 
 
-#################################################################################################
-#Boxplot comparing the differences in virulences between northern and southern isolates per year#
-#################################################################################################
+# Boxplot comparing the differences in virulences between N and S  --------
+
 
 str(OCR_wout_2013_clean)
 NvS_boxplot <-ggplot(OCR_wout_2013_clean, aes(x=factor(year, levels=1993:2023), y=countvirulence, fill=region, group = interaction(year, region))) + 
@@ -970,7 +991,7 @@ NvS_boxplot <-ggplot(OCR_wout_2013_clean, aes(x=factor(year, levels=1993:2023), 
 
 NvS_boxplot
 
-###### Wilcox test #######
+## Wilcox Test -------------------------------------------------------------
 
 library(rstatix)
 
@@ -1051,209 +1072,10 @@ arrangedNvsS <- ggarrange(NvS_boxplot, Sample_Number_by_region_bargraph,
                           nrow=2,
                           align="v")
 arrangedNvsS
-ggsave("NvsSarranged.tiff", scale=1, dpi=300, width=4000, height=2300, units="px", path=".")
+ggsave("Supplementary Figure NvsSarranged.tiff", scale=1, dpi=300, width=4000, height=2300, units="px", path=".")
 
 
-#####################################
-#Performing polychorric correlations#
-#####################################
-
-library("polycor")
-
-# perform the analysis without Marvelous because it is causing singularity errors (due to it always being susceptible)
-
-OCR_for_polychor <-OCR_wout_2013_clean[,8:47]
-OCR_for_polychorNoMarv <-OCR_for_polychor[,-32]
-
-#change from 0 and 1 into characters so that it doesn't mistake them for numbers and use the pearson's correlation on it
-OCR_for_polychorNoMarv[OCR_for_polychorNoMarv==0] <- "Av"
-OCR_for_polychorNoMarv[OCR_for_polychorNoMarv==1] <- "V"
-
-OCR_correlation <- hetcor(OCR_for_polychorNoMarv, ML = TRUE, std.err = TRUE, use="pairwise.complete.obs", 
-                          bins=4, pd=TRUE, parallel=FALSE, ncores=detectCores(logical=FALSE), thresholds=FALSE)
-
-tail(OCR_correlation$std.errors)
-
-#checking values of individual correlations
-OCR_correlation$correlations["Pc38" ,"Pc63"]
-OCR_correlation$correlations["Pc68" ,"HiFi"]
-OCR_correlation$correlations["Pc48" ,"Pc52"]
-OCR_correlation$correlations["Pc62" ,"Pc64"]
-
-OCR_correlation$correlations["Pc91" ,"HiFi"]
-OCR_correlation$correlations["Pc35" ,"Pc58"]
-
-OCR_correlation$correlations
-class(OCR_correlation$correlations)
-
-OCR_correlation_matrix <- OCR_correlation$correlations
-str(OCR_correlation_matrix)
-class(OCR_correlation_matrix)
-# reorder the correlation matrix before further melting
-# using the rev() to reverse the order of the names because corrplot uses the opposite order of ggplot heatmaps
-order <-colnames(heatmap_data_matrix)[rev(clust$order)]
-order <- order[-20] #removing Marvelous from the name order vector
-OCR_corr_ordered <-OCR_correlation_matrix[,order]
-OCR_corr_ordered2 <-OCR_corr_ordered[order, ]
-is.vector(clust$order)
-
-library("pgirmess")
-get_upper_tri<-function(cormat){
-  cormat[upper.tri(cormat)] <- NA
-  return(cormat)
-}
-
-OCR_lower_tri <- get_upper_tri(OCR_corr_ordered2)
-
-library(corrplot)
-
-tiff(file = "Figure 5 correlations.tiff", width = 178, height = 178, units = "mm", res = 600)
-corrplot(OCR_lower_tri, type='lower', tl.col = 'black', na.label='X', na.label.col='gray', tl.cex=0.75)
-dev.off()
-
-######Now doing correlations just since 2015 (possibility for germplasm mixups to have happened since the start of 
-# the survey, would like to see if some correlations are much stronger since the survey was restarted in 2015)
-
-OCR2015_2022<- OCR_survey %>% filter(year>=2015)
-OCR_for_polychor_2015_2022 <-OCR2015_2022[,8:47]
-OCR_for_polychor_2015_2022 <-OCR_for_polychor_2015_2022[,-32]
-
-#change from 0 and 1 into characters so that it doesn't mistake them for numbers and use the pearson's correlation on it
-OCR_for_polychor_2015_2022[OCR_for_polychor_2015_2022==0] <- "Av"
-OCR_for_polychor_2015_2022[OCR_for_polychor_2015_2022==1] <- "V"
-
-OCR_correlation <- hetcor(OCR_for_polychor_2015_2022, ML = TRUE, std.err = TRUE, use="pairwise.complete.obs", 
-                          bins=4, pd=TRUE, parallel=FALSE, ncores=detectCores(logical=FALSE), thresholds=FALSE)
-
-tail(OCR_correlation$std.errors)
-
-#checking values of individual correlations
-OCR_correlation$correlations["Pc38" ,"Pc63"]
-OCR_correlation$correlations["Pc68" ,"HiFi"]
-OCR_correlation$correlations["Pc48" ,"Pc52"]
-OCR_correlation$correlations["Pc62" ,"Pc64"]
-
-OCR_correlation$correlations["Pc91" ,"HiFi"]
-OCR_correlation$correlations["Pc35" ,"Pc58"]
-
-OCR_correlation$correlations
-class(OCR_correlation$correlations)
-
-OCR_correlation_matrix <- OCR_correlation$correlations
-str(OCR_correlation_matrix)
-class(OCR_correlation_matrix)
-# reorder the correlation matrix before further melting
-# using the rev() to reverse the order of the names because corrplot uses the opposite order of ggplot heatmaps
-order <-colnames(heatmap_data_matrix)[rev(clust$order)]
-order <- order[-20] #removing Marvelous from the name order vector
-OCR_corr_ordered <-OCR_correlation_matrix[,order]
-OCR_corr_ordered2 <-OCR_corr_ordered[order, ]
-is.vector(clust$order)
-
-library("pgirmess")
-get_upper_tri<-function(cormat){
-  cormat[upper.tri(cormat)] <- NA
-  return(cormat)
-}
-
-OCR_lower_tri <- get_upper_tri(OCR_corr_ordered2)
-
-library(corrplot)
-
-tiff(file = "correlations 2015-2022.tiff", width = 178, height = 178, units = "mm", res = 600)
-corrplot(OCR_lower_tri, type='lower', tl.col = 'black', na.label='X', na.label.col='gray', tl.cex=0.75)
-dev.off()
-# I still don't know why it throws some almost perfect correlations that are not perfect, what is up with that? (ie Legget and Pc39)
-
-
-#######################
-#additional statistics#
-#######################
-
-# calculate the virulence count of the original 30 differentials in 2022
-meanvirulence2022 <-OCR_survey %>%
-  filter(year==2022)
-mean(rowSums(meanvirulence2022[,c(8:35,39,40)], na.rm = TRUE))
-
-meanvirulence1993 <-OCR_survey %>%
-  filter(year==1993)
-mean(rowSums(meanvirulence1993[,c(8:35,39,40)], na.rm = TRUE))
-
-
-#plotting all the points is messy but here is the code
-dotplot_long <-gather(heatmap_data, differential_line, percent_virulent, Pc14:Stainless)
-str(dotplot_long)
-ggplot(dotplot_long, aes(x=year, y=percent_virulent, group=differential_line))+
-  geom_point()+
-  geom_line(aes(col=differential_line))
-
-###checking percent virulence to individual differentials
-##plotting one at a time
-ggplot(heatmap_data, aes(x=year, y=Pc45))+
-  geom_point()+
-  ylim(0,100)
-
-# checking geographical distribution for a particular year
-OCR_wout_2013_clean %>% 
-  filter(year==2018) %>% 
-  group_by(state) %>% 
-  summarise(total_count=n(),.groups = 'drop') %>% 
-  as.data.frame()
-
-
-
-###################################################################
-# making a violin plot to compare N and S
-library(cowplot)
-OCR_2023 <- filter(OCR_wout_2013_clean, year == 2023)
-# Perform a wilcox test
-compare_means(countvirulence ~ region, data = OCR_2023)
-my_comparisons <- list(c("North", "South"))
-violin_plot <- ggplot(OCR_2023, aes(x=region, y=countvirulence, fill=region)) + 
-  geom_violin(trim=TRUE)+
-  theme_minimal_hgrid()+
-  ylim(0,40)+
-  coord_cartesian(expand=FALSE)+
-  scale_fill_manual(values=c("#762a83", "#5aae61"))+
-  labs(title="Distribution of isolate virulence by region", y="Number of virulences per isolate", x="Region")+
-  theme(legend.position="none")+
-  geom_boxplot(width=0.1, fill="white", color="light gray", outlier.size=3)+
-  stat_compare_means( aes(label = paste0(..method.., "\n", "p = ", ..p.format..)), label.x = 1.35, label.y = 35)
-violin_plot
-
-ggsave("N vs S violin plot.tiff", scale=1, units="mm")
-# , dpi=600, width=150, height=100
-
-library(gridExtra)
-library(grid)
-
-grid.arrange( grid.grabExpr(draw(scoring_plot)), ggplotGrob(violin_plot), ncol=2)
-
-tiff("overlapping_plot.tiff", width = 3500, height = 2800, units="px", res=300)
-
-grid.newpage()
-grid.draw(grid.grabExpr(draw(scoring_plot)))
-vp <-viewport(x=0.90, y=0.65, width=0.2, height=0.3)
-print(violin_plot, vp=vp)
-
-dev.off()
-
-#don't love the plots, can't get the overlap right
-
-display.brewer.pal(11, "PRGn") 
-brewer.pal(11, "PRGn") 
-PRGn_colors <- c("#40004B", "#762A83", "#9970AB" ,"#C2A5CF", "#E7D4E8", "#F7F7F7", "#D9F0D3", "#A6DBA0", "#5AAE61", "#1B7837", "#00441B") 
-# Create a color ramp function from these colors 
-PRGn_ramp <- colorRampPalette(PRGn_colors) 
-# Generate 100 colors from this palette 
-custom_palette2 <- PRGn_ramp(101) 
-
-
-###################################################################
-#three years of data comparing the N and S in a heatmap format#
-###################################################################
-
-library("colorspace")
+# Comparing N vs S four years of data -------------------------------------
 
 str(OCR_wout_2013_clean)
 heatmap_data <- OCR_wout_2013_clean %>% group_by(year, region) %>% #using two variables for grouping
@@ -1291,97 +1113,4 @@ arrangedplotsordered <- ggarrange(dendro_rust_groups, heatmap_year,
 annotate_figure(arrangedplotsordered,
                 left = text_grob("Differential Line", rot = 90))
 
-ggsave("heatmapNvS.tiff")
-
-# Not so sure this is the best way to group the data, either I will separate out north and south completely, or just show the difference graph that I have used in the past
-# I will include this as a supplemental figure
-
-
-######################################################
-# copied from above analysis, to delete
-
-#Order the heatmap rows by hierarchical clustering so that patterns are easier to see
-
-heatmap_data_matrix <- as.matrix(heatmap_data[, -1]) # -1 to omit categories from matrix
-# Cluster based on euclidean distance
-clust <- hclust(dist(t(heatmap_data_matrix)))
-rust_clust <- as.dendrogram(hclust(dist(t(heatmap_data_matrix))))
-
-library("ggdendro")
-
-dendro_rust
-
-#ordered heatmap using dendrogram
-heatmap_year_ordered <-ggplot(heatmap_data_long, aes(factor(year), factor(differential_line, levels=rev(unique(differential_line))), fill=percent_virulent))+
-  geom_tile(show.legend = FALSE)+
-  scale_y_discrete(limits = colnames(heatmap_data_matrix)[clust$order])+
-  scale_fill_continuous_sequential(palette = "YlOrRd", rev = TRUE)+
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), plot.title = element_text(hjust = 0.5, size=11), plot.margin = unit(c(5.5,5.5,5.5,0), "points"), text=element_text(size=9))+ #decrease plot margin on left side so lines up closer to the dendrogram
-  geom_text(aes(label = round(percent_virulent, 1)), color = "black", size = 2.5)+
-  # ylab("Differential Line")+
-  ggtitle("Percentage of virulent isolates per year \n")
-  # annotate("segment", x = 20.5, xend = 20.5, y = 40.5, yend = 0.5, colour = "gray", linewidth=1, alpha=0.4)
-heatmap_year_ordered
-
-# create summary figure grouped by decade
-# 1993-2002, 2003-2012, 2013-2022
-# Use the clean data with the two observations from 2013
-OCR_survey %>%
-  mutate(across("Pc91":"Pc96", ~ifelse(isolate=="96WI064", NA, .))) %>% 
-  mutate(across("IAB605Xsel.":"TAM.O.405", ~ifelse(isolate=="96WI064", NA, .))) %>% 
-  mutate(across("Pc91":"Pc96", ~ifelse(isolate=="01TX010", NA, .))) %>% 
-  mutate(across("IAB605Xsel.":"TAM.O.405", ~ifelse(isolate=="01TX010", NA, .))) -> OCR_survey_clean
-
-# now subset data into three decades and take the mean
-OCR_survey_clean %>%
-  filter(year<=2002) %>% 
-  summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100)) ->Mean_1993_to_2002
-OCR_survey_clean %>%
-  filter(year>2002, year<2013) %>% 
-  summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100)) ->Mean_2003_to_2012
-OCR_survey_clean %>%
-  filter(year>=2013) %>% 
-  summarise(across("Pc14":"Stainless", ~ mean(.x, na.rm = TRUE)*100)) ->Mean_2013_to_2023
-# bind the means together
-Mean_by_decade <- bind_rows("1993-2002"= Mean_1993_to_2002, "2003-2012"= Mean_2003_to_2012, "2013-2022"= Mean_2013_to_2023, .id="Decade")
-
-### change data into long format
-Mean_by_decade_long <-gather(Mean_by_decade, differential_line, percent_virulent, Pc14:Stainless)
-str(Mean_by_decade_long)
-
-#ordered heatmap by decade
-heatmap_decade_ordered <- ggplot(Mean_by_decade_long, aes(factor(Decade), factor(differential_line, levels=rev(unique(differential_line))), fill=percent_virulent))+
-  geom_tile(show.legend = FALSE)+
-  scale_y_discrete(limits = colnames(heatmap_data_matrix)[clust$order])+
-  # scale_fill_gradient2(low = "light blue", mid = "white", high = "red", midpoint = 0.5)+
-  # scale_fill_gradient2(low = "white", high = "red")+
-  # scale_fill_distiller(palette = "YlGnBu")+
-  # scale_fill_viridis_c(option="I")+
-  scale_fill_continuous_sequential(palette = "YlOrRd", rev = TRUE)+
-  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), plot.title = element_text(hjust = 0.5), text=element_text(size=7.5))+
-  scale_x_discrete(labels=c("1993-2002" = "1993-\n2002", "2003-2012" = "2003-\n2012",
-                            "2013-2023" = "2013-\n2023"))+
-  geom_text(aes(label = round(percent_virulent, 1)), color = "black", size = 2)+
-  ggtitle("Percentage of \nvirulent isolates \nper decade")
-heatmap_decade_ordered
-
-#arrange the two ordered plots together with the dendrogram
-arrangedplotsordered <- ggarrange(dendro_rust, heatmap_year_ordered, heatmap_decade_ordered,
-                                  labels=c("a", "","b"),
-                                  nrow=1,
-                                  align="h",
-                                  widths=c(0.08, 1, 0.24))
-arrangedplotsordered
-
-annotate_figure(arrangedplotsordered,
-                left = text_grob("Differential Line", rot = 90))
-
-#just the year plot with the dendrogram
-arrangedplotsordered <- ggarrange(dendro_rust, heatmap_year_ordered,
-                                  nrow=1,
-                                  align="h",
-                                  widths=c(0.08, .95))
-arrangedplotsordered
-
-annotate_figure(arrangedplotsordered,
-                left = text_grob("Differential Line", rot = 90))
+ggsave("Supplemental Figure heatmapNvS 2020-2023.tiff")
