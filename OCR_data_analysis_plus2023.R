@@ -248,6 +248,9 @@ isolate31_all %>% count(region, year)
 
 # Plotting the heat map of observations per state -------------------------
 
+library("rnaturalearth")
+library("sf")
+
 ## Only 2023 ---------------------------------------------------------------
 
 states_us <- ne_states(country="United States of America",returnclass = 'sf')
@@ -270,6 +273,10 @@ states_us <- merge(states_us, samples_per_state, all = TRUE)
 #read in a simple CSV with the regions N vs S defined and merge with states_us
 regions_key <- read.csv("Postal codes and regions.csv")
 states_us <-merge(states_us, regions_key, by="postal")
+#replacing postal codes with NA for the states where rust_count=NA, so that only the states with samples are labeled.
+states_us <- states_us %>% 
+  mutate(postal = if_else(is.na(rust_count), as.character(NA), postal))
+str(states_us, list.len=ncol(states_us))
 
 #statistics on the percentages for each state for the results section
 sum(samples_per_state$rust_count)
@@ -283,9 +290,10 @@ nrow(OCR_survey_2023[OCR_survey_2023$region == 'North', ])
 (mainland <- ggplot(data = states_us) +
     geom_sf(data=states_us, aes(fill = rust_count)) +
     scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt", name="Sample count")+
-    geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
     geom_sf(fill = "transparent", color = "black", linewidth=0.3, #adding a thick border around the two regions
             data = . %>% group_by(rust_region) %>% summarise()) +
+    geom_sf_label(aes(label = rust_count), size = 2.5, fontface = "bold", label.padding = unit(0.15, "lines"), nudge_y=90000) +
+    geom_sf_label(aes(label = postal), size = 2, fontface = "bold", label.padding = unit(0.15, "lines"), nudge_y=-90000) + #adding state name labels
     coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2500000), ylim = c(-2300000, 730000)))
 
 (alaska <- ggplot(data = states_us) +
@@ -296,7 +304,7 @@ nrow(OCR_survey_2023[OCR_survey_2023$region == 'North', ])
     geom_sf_label(aes(label = rust_count), size = 2, fontface = "bold", label.padding = unit(0.15, "lines")) +
     coord_sf(crs = st_crs(3467), xlim = c(-2400000, 1600000), ylim = c(200000, 2500000), expand = FALSE, datum = NA))+
   xlab("") + ylab("")
-
+  
 (hawaii  <- ggplot(data = states_us) +
     geom_sf(data=states_us, aes(fill = rust_count)) +
     scale_fill_gradient(low="light blue", high="dark blue", trans= "sqrt")+
@@ -323,10 +331,6 @@ mainland + xlab("Longitude") + ylab("Latitude") +
 
 ggsave("Figure 1 Rust sample map 2023.tiff", scale=1, dpi=600, width=178, units="mm")
 
-
-
-library("rnaturalearth")
-library("sf")
 
 ## All years, from 1993-2023 -----------------------------------------------
 
@@ -448,7 +452,7 @@ boxplot_legend
 boxplotwlegend <- ggarrange(boxplot1, boxplot_legend, widths=c(1,0.12),
                           nrow=1)
 boxplotwlegend
-ggsave("Boxplot all years with legend.tiff", scale=1, dpi=600, width=150, height=113, units="mm", path=".", bg="white")
+ggsave("Supplementary Figure S1.tiff", scale=1, dpi=600, width=150, height=113, units="mm", path=".", bg="white")
 
 
 
@@ -476,6 +480,7 @@ str(OCR_2023_heatmap)
 
 #load required packages
 library(ComplexHeatmap)
+library(InteractiveComplexHeatmap)
 library(circlize)
 #library(RColorBrewer) #another alternative package for colors if so desired
 library(colorRamps)
@@ -581,11 +586,18 @@ png("Heatmap 2023 isolates.tiff", width = 3500, height = 2800, units="px", res=3
 scoring_plot
 dev.off()
 
+# Making an interactive Shiny App
+
+htShiny(scoring_plot, title="2023 USA CDL Oat Crown Rust Survey Results", description = "Heatmap of virulence response of 238 Pca isolates to 39 differential lines. The differential response is shown as HR (highly resistant, no sporulation, ratings 0-;n) 
+MR (moderately resistant, some sporulation, ratings 1-2), and S (susceptible, heavy sporulation, ratings 3-4). 
+Missing data is denoted by gray cells. The isolate collection region is annotated in the top bar as North (purple) or South (green). Percentage of isolates virulent (S ratings) for each differential line is annotated on the left bar. The susceptible check Marvelous is not shown. 
+\nYou can click a position or select an area from the heatmap. The original heatmap and the selected sub-heatmap can be resized by dragging from the bottom right of the box.")
+
+
 # Violin Plot N vs S ------------------------------------------------------
 
-
-# making a violin plot to compare N and S
 library(cowplot)
+# making a violin plot to compare N and S
 OCR_2023 <- filter(OCR_wout_2013_clean, year == 2023)
 # Perform a wilcox test
 compare_means(countvirulence ~ region, data = OCR_2023)
@@ -793,17 +805,17 @@ ggsave("Figure 4 heatmap 450dpi.tiff", scale=1, dpi=450, width=246, height=178, 
 
 
 #all plots minus decade
-arrangedplotsordered_slope <- ggarrange(dendro_rust, heatmap_year_ordered, heatmap_slope,
+arrangedplotsordered_slope <- ggarrange(dendro_rust, heatmap_year_ordered,
                                         nrow=1,
                                         align="h",
-                                        widths=c(0.08, 1, 0.06))
+                                        widths=c(0.08, 1))
 arrangedplotsordered_slope
 
 annotate_figure(arrangedplotsordered_slope,
                 left = text_grob("Differential Line", rot = 90, size=13))
 
 
-ggsave("Supplementary Figure heatmap 30 years.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
+ggsave("Figure 4.tiff", scale=1, dpi=450, width=246, height=178, units="mm", path=".", bg="white")
 
 
 
@@ -1113,4 +1125,4 @@ arrangedplotsordered <- ggarrange(dendro_rust_groups, heatmap_year,
 annotate_figure(arrangedplotsordered,
                 left = text_grob("Differential Line", rot = 90))
 
-ggsave("Supplemental Figure heatmapNvS 2020-2023.tiff")
+ggsave("Supplementary Figure S1.tiff", scale=1, dpi=300, width=1500, height=2300, units="px")
